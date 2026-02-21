@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Lista de Usuarios{% endblock %}
+
+{% block content %}
+<h2>Lista de Usuarios</h2>
+<hr>
+<a href="{{ url_for('admin.create')}}">
+    <button type="button">+ Agregar Usuarios</button>
+</a>
+<hr>
+
+<table border="1">
+    <tr>
+        <th>ID</th>
+        <th>Nombre</th>
+        <th>Email</th>
+        <th>Rol</th>
+    </tr>
+    {% for user in users %}
+    <tr>
+        <td>{{ user.id }}</td>
+        <td>{{ user.name }}</td>
+        <td>{{ user.email }}</td>
+        <td>{{ user.role }}</td>
+        <td>
+            <a href="{{ url_for('admin.edit_user', user_id=user.id) }}">Editar</a>
+        </td>
+        <td>
+            {% if user.id != session['user_id']%}
+            <a href="{{ url_for('admin.delete', user_id=user.id) }}">Eliminar</a>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}
