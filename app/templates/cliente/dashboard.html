@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h2>Consulta Tarot</h2>
+
+    <h3>Psiquicos en linea: <span id="online-count">0</span></h3>
+
+    <div id="cards-container">
+
+    </div>
+    <textarea name="" id="question" placeholder="Escribe tu pregunta.."></textarea>
+    <button onclick="sendQuestion()">Enviar Pregunta</button>
+
+    <div id="response"></div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+
+    <script>
+        const socket = io();
+        let selectedCards =[];
+
+        socket.on('update_psychic', function(data) {
+            document.getElementById("online-count").innerText = data.count;
+        })
+
+        //Enviar preguntas
+        function sendQuestion(){
+            
+            const question = document.getElementById('question').value;
+
+            if(selectedCards.length !== 3){
+                alert("Debes seleccionar 3 cartas");
+                return;
+            }
+
+            socket.emit('send_question', {
+                question:question,
+                cards : selectedCards
+            });
+        }
+
+        //Escuchar respuestas privadas
+        socket.on('receive_answer', function(data){
+            document.getElementById("response").innerHTML =
+            "<h3>Repuesta: <h3><p>"+ data.answer+"</p>";
+        });
+    </script>
+</body>
+</html>

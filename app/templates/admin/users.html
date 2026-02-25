@@ -10,6 +10,21 @@
 </a>
 <hr>
 
+<h3>Psiquicos en linea: <span id="online-count">0</span></h3>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+ <script>
+        const socket = io();
+        
+        let selectedCards =[];
+
+        socket.on('update_psychic', function(data) {
+            console.log("Recibido: ",data);
+            document.getElementById("online-count").innerText = data.count;
+        });
+</script>
+
 <table border="1">
     <tr>
         <th>ID</th>

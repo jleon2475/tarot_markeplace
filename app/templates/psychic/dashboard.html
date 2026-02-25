@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h2>Panel del Psiquico</h2>
+
+    <div id="questions-container">
+        <h3>Preguntas en vivo:</h3>
+    </div>
+    
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <script>
+        const socket = io();
+
+        socket.on("connect", function() {
+            console.log("Conectado al servidor");
+
+            socket.emit("psychic_online");
+        });
+
+        socket.on("disconnect", function(){
+            console.log("Desconectado del servidor")
+        })
+
+        socket.on('new_question', function(data){
+            
+            const container = document.getElementById("questions-container");
+
+            const questionBlock = document.createElement("div");
+            questionBlock.style.border = "1px solid #ccc";
+            questionBlock.style.padding = "10px";
+            questionBlock.style.marginBottom = "10px";
+
+            questionBlock.innerHTML = `
+            <p><strong>Pregunta:</strong> ${data.question}<p>
+            <p><strong>Pregunta:</strong> ${data.cards.join(",")}<p> 
+            
+            <textarea id = "answer_${data.question_id})" placeholder="Escribe tu respuesta></textarea>"
+            <br>
+            <buttom onclick="sendAnswer(${data.quetion_id})">Responder</buttom>`;
+
+            container.prepend(questionBlock);
+        });
+
+        function sendAnswer(question_id){
+
+            const answerText = document.getElementById("answer_"+question_id).value;
+
+            if(answerText.trim===""){
+                alert("Debes escribir una respuesta")
+            }
+
+            socket.emit('send_answer',{
+                question_id: question_id,
+                answer: answerText
+            })
+
+            alert("Repuesta enviada");
+        }    
+    </script>
+</body>
+</html>

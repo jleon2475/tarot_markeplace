@@ -1,1 +1,14 @@
 <h2>Tablero de control</h2>
+
+<h3>Psiquicos en linea: <span id="online-count">0</span></h3>
+
+ <script src="https://cdn.socket.io/4.8.3/socket.io.esm.min.js"></script>
+
+ <script>
+        const socket = io();
+        let selectedCards =[];
+
+        socket.on('update_psychic', function(data) {
+            document.getElementById("online-count").innerText = data.count;
+        });
+</script>
