@@ -10,9 +10,10 @@
 
     <h3>Psiquicos en linea: <span id="online-count">0</span></h3>
 
-    <div id="cards-container">
+    <div id="countdown"></div>
 
-    </div>
+    <div id="cards-container"></div>
+
     <textarea name="" id="question" placeholder="Escribe tu pregunta.."></textarea>
     <button onclick="sendQuestion()">Enviar Pregunta</button>
 
@@ -24,9 +25,38 @@
     <script>
         const socket = io();
         let selectedCards =[];
+        let currentRoom = null;
+
+        fetch("/get_cards")
+        .then(response => response.json())
+        .then(data =>{
+            const container = document.getElementById("cards-container");
+
+            data.forEach(card => {
+                const carDiv = document.createElement("div");
+                carDiv.classList.add("card");
+                carDiv.innerHTML = `
+                <img src="/static/cards/${card.image}" width="100">
+                <p>${card.name}</p>`;
+                carDiv.addEventListener("click", () => selectCard(card.id,carDiv));
+                container.appendChild(carDiv);                
+            });
+        });
 
         socket.on('update_psychic', function(data) {
             document.getElementById("online-count").innerText = data.count;
+        })
+
+        //Cuando el psiquico acepta se detiene el contador
+        socket.on('reading_accepted', function(){
+            clearInterval(timer),
+            document.getElementById("countdown").innerText ="Consulta iniciada";
+        })
+
+        //Si ocurre TimeOut
+        socket.on('question_timeout', function(data){
+            clearInterval(timer),
+            document.getElementById("countdown").innerText = data.message;
         })
 
         //Enviar preguntas
@@ -34,15 +64,12 @@
             
             const question = document.getElementById('question').value;
 
-            if(selectedCards.length !== 3){
-                alert("Debes seleccionar 3 cartas");
-                return;
-            }
-
             socket.emit('send_question', {
-                question:question,
-                cards : selectedCards
+                question: question,
+                room: currentRoom                
             });
+
+            document.getElementById('question').value = "";
         }
 
         //Escuchar respuestas privadas
@@ -50,6 +77,14 @@
             document.getElementById("response").innerHTML =
             "<h3>Repuesta: <h3><p>"+ data.answer+"</p>";
         });
+
+        socket.on('new_question', function(data){
+
+            console.log("Pregunta recibida:",data)
+
+            document.getElementById("response").innerHTML =
+            "<h3>Pregunta enviada:</h3><p>" + data.question + "</p>";
+        })
     </script>
 </body>
 </html>

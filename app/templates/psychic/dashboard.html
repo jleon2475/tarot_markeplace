@@ -20,7 +20,7 @@
         socket.on("connect", function() {
             console.log("Conectado al servidor");
 
-            socket.emit("psychic_online");
+            socket.emit("psychic_online");  
         });
 
         socket.on("disconnect", function(){
@@ -31,18 +31,25 @@
             
             const container = document.getElementById("questions-container");
 
+            let cardsHtml = "";
+
+            data.cards.forEach(card=>{
+                cardsHtml += `<img src="/static/cards/${card.image}" width="80">`;
+            });       
+            
             const questionBlock = document.createElement("div");
+
             questionBlock.style.border = "1px solid #ccc";
             questionBlock.style.padding = "10px";
             questionBlock.style.marginBottom = "10px";
 
             questionBlock.innerHTML = `
-            <p><strong>Pregunta:</strong> ${data.question}<p>
-            <p><strong>Pregunta:</strong> ${data.cards.join(",")}<p> 
+            <p><strong>Pregunta:</strong> ${data.question}</p>
+            <p> ${cardsHtml}</p> 
             
-            <textarea id = "answer_${data.question_id})" placeholder="Escribe tu respuesta></textarea>"
+            <textarea id = "answer_${data.question_id}" placeholder="Escribe tu respuesta"></textarea>
             <br>
-            <buttom onclick="sendAnswer(${data.quetion_id})">Responder</buttom>`;
+            <button onclick="sendAnswer(${data.question_id})">Responder</button>`;
 
             container.prepend(questionBlock);
         });

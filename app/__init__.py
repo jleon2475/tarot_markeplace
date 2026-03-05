@@ -23,7 +23,7 @@ def create_app():
     app.register_blueprint(admin)
     app.register_blueprint(wall_bp)  
 
-    from . import socket_events    
+      
 
     return app
     
