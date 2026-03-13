@@ -1,16 +1,15 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
+{% extends 'base.html' %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
     <h2>Panel del Psiquico</h2>
+
+    <h2>Bienvenido {{ user_name }}</h2>
 
     <div id="questions-container">
         <h3>Preguntas en vivo:</h3>
-    </div>
+    </div>    
     
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
@@ -27,17 +26,50 @@
             console.log("Desconectado del servidor")
         })
 
-        socket.on('new_question', function(data){
-            
+        function takeQuestion(id){
+            console.log("ID enviado: ",id)
+            socket.emit("take_question",{
+                question_id:id
+            })
+        }
+
+        socket.on("open_chat", function(data){
+
+            console.log("Evento open_question recibido", data);
+
             const container = document.getElementById("questions-container");
 
-            let cardsHtml = "";
+            const answerBlock = document.createElement("div");
+
+            answerBlock.innerHTML = ` 
+            <h3>Responder Consulta</h3>
+            
+            <textarea id = "answer_${data.question_id}"
+            rows="4" cols="50"
+            placeholder = "Escribe tu interpretación..."></textarea>
+
+            <br><br>
+
+            <button onclick = "sendAnswer(${data.question_id})">
+            Enviar respuesta
+            </button>
+            `;
+
+            container.prepend(answerBlock);
+        });
+
+        socket.on('new_question', function(data){
+            
+            const container = document.getElementById("questions-container")
+
+            let cardsHtml = ""
 
             data.cards.forEach(card=>{
                 cardsHtml += `<img src="/static/cards/${card.image}" width="80">`;
             });       
             
             const questionBlock = document.createElement("div");
+            questionBlock.id = "question-" + data.question_id;
 
             questionBlock.style.border = "1px solid #ccc";
             questionBlock.style.padding = "10px";
@@ -45,20 +77,32 @@
 
             questionBlock.innerHTML = `
             <p><strong>Pregunta:</strong> ${data.question}</p>
-            <p> ${cardsHtml}</p> 
-            
-            <textarea id = "answer_${data.question_id}" placeholder="Escribe tu respuesta"></textarea>
-            <br>
-            <button onclick="sendAnswer(${data.question_id})">Responder</button>`;
-
+            <p> ${cardsHtml}</p>
+            <button onclick="takeQuestion(${data.question_id})">Tomar consulta</button>
+            </div>
+            <br><br>            
+            `;
             container.prepend(questionBlock);
         });
+
+        socket.on("question_taken", function(data){
+
+            let block = document.getElementById("question-"+ data.question_id)
+
+            if(block){
+                block.innerHTML = "Consulta tomada por otro psiquico"
+            }
+        })
+
+        socket.on("already_take", function(data){
+            alert("Esta consulta ya fue tomada por otro psiquico")
+        })
 
         function sendAnswer(question_id){
 
             const answerText = document.getElementById("answer_"+question_id).value;
 
-            if(answerText.trim===""){
+            if(answerText.trim()===""){
                 alert("Debes escribir una respuesta")
             }
 
@@ -70,5 +114,4 @@
             alert("Repuesta enviada");
         }    
     </script>
-</body>
-</html>
+{% endblock %}

@@ -1,47 +1,67 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    <h2>Consulta Tarot</h2>
+{% extends 'base.html' %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+
+    <h2>Bienvenido {{ user_name }}</h2>
 
     <h3>Psiquicos en linea: <span id="online-count">0</span></h3>
+    
+    <h2>Consulta Tarot</h2>
+
+    <button id="draw-cards-btn" onclick="drawsCards()">Tirar cartas</button>    
 
     <div id="countdown"></div>
 
     <div id="cards-container"></div>
 
-    <textarea name="" id="question" placeholder="Escribe tu pregunta.."></textarea>
+    <textarea name="" id="question" placeholder="Escribe tu pregunta.." disabled></textarea>
     <button onclick="sendQuestion()">Enviar Pregunta</button>
 
     <div id="response"></div>
 
+       
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
 
     <script>
         const socket = io();
         let selectedCards =[];
-        let currentRoom = null;
+        let currenQuestionid = null;
+    
 
-        fetch("/get_cards")
+    function drawsCards(){
+        
+        fetch("/cliente/get_cards")
         .then(response => response.json())
         .then(data =>{
-            const container = document.getElementById("cards-container");
+            
+            const container = document.getElementById("cards-container")
+
+            container.innerHTML = ""
+
+            selectedCards = data
 
             data.forEach(card => {
-                const carDiv = document.createElement("div");
-                carDiv.classList.add("card");
+
+                const carDiv = document.createElement("div")
+
                 carDiv.innerHTML = `
                 <img src="/static/cards/${card.image}" width="100">
                 <p>${card.name}</p>`;
-                carDiv.addEventListener("click", () => selectCard(card.id,carDiv));
+                
                 container.appendChild(carDiv);                
-            });
-        });
+            })
+
+            
+            //habilita el la caja de texto para formular la pregunta
+            document.getElementById("question").disabled = false
+
+            //ocultar el botón
+            document.getElementById("draw-cards-btn").style.display = "none"
+        })
+    }
 
         socket.on('update_psychic', function(data) {
             document.getElementById("online-count").innerText = data.count;
@@ -66,7 +86,7 @@
 
             socket.emit('send_question', {
                 question: question,
-                room: currentRoom                
+                cards: selectedCards                                
             });
 
             document.getElementById('question').value = "";
@@ -85,6 +105,45 @@
             document.getElementById("response").innerHTML =
             "<h3>Pregunta enviada:</h3><p>" + data.question + "</p>";
         })
+
+        //chat privado
+        function sendMessage(){
+
+            const input = document.getElementById("chat-input")
+            const message = input.value
+            
+            socket.emit("send_chat_message", {
+                question_id : currenQuestionid,
+                message : message
+            })
+
+            input.value = ""
+
+        }
+
+        socket.on("receive_chat_message", function(data){
+
+            const chatbox = document.getElementById("chat-box")
+
+            const message = document.createElement("p")
+
+            message.innerHTML = "<b>" + data.user + ":</b>" + data.message
+
+            chatbox.appendChild(message)
+
+            chatbox.scrollTop = chatbox.scrollHeight            
+
+        })
+
+        socket.on("question_taken", function(data){
+
+            currentQuestion = data.question_id
+
+            socket.emit("join_question_room", {
+                question_id: currentQuestion
+            })
+        })
+
+
     </script>
-</body>
-</html>
+{% endblock %}

@@ -95,12 +95,16 @@ def psychic_online():
     if session.get('user_role') == 'psychic':
 
         user_id = session.get('user_id')
+
+        #Guarda en el diccionario los psiquicos conectados
         online_psychic[user_id] = request.sid
 
-        print(f"Psiquico {user_id} conectado")
+        #Entra a sala de psiquicos
+        join_room("psychics")
+
+        print("Psiquico unido al chat")
 
         emit('update_psychic', {
-            'psychics' : list(online_psychic.keys()),
             'count': len(online_psychic)
             }, broadcast=True)
 
@@ -126,63 +130,37 @@ def handle_disconnect():
 @socketio.on('send_question')
 def handle_question(data):
 
+    print("Data Recibida: ", data)
+
     question = data.get('question')
+    cards = data.get('cards')
+
     user_id = session.get('user_id')
-    print("Pregunta enviada:",question)
+
+    card1 = cards[0]["id"]
+    card2 = cards[1]["id"]
+    card3 = cards[2]["id"]
     
     cur = mysql.connection.cursor()
-    #Seleccionar todas las cartas 
-    cur.execute("""
-                SELECT id,name,image FROM tarot_cards
-                ORDER BY RAND() LIMIT 3""")
-    
-    cards = cur.fetchall()
 
-    #Elegir 3 cartas únics aleatorias 
-    ramdon_cards = random.sample(cards,3)
-
-    card1 = ramdon_cards[0][0]
-    card2 = ramdon_cards[1][0]
-    card3 = ramdon_cards[2][0]
-    
-    #Insertar preguntas con cartas asignadas por el sistema
+    #Seleccionar todas las cartas     
     cur.execute("""
-                INSERT INTO questions (user_id, card1, card2, card3, questions, status)
-                VALUES (%s,%s,%s,%s,%s, 'pending')
+                INSERT INTO questions (user_id, card1, card2, card3, questions, status, taken_by)
+                VALUES (%s,%s,%s,%s,%s, 'pending',NULL)
                 """, (user_id, card1,card2,card3,question))
 
     mysql.connection.commit()
+
     question_id = cur.lastrowid
+
     cur.close()
-
-    room_name = f"question_{question_id}"
-
-    #usuario entra a su room privado
-    join_room(room_name)
-
-    socketio.start_background_task(
-        auto_cancel_question,
-        question_id,
-        room_name
-    )
-
-    cards_data = []
-
-    for card in cards:
-        cards_data.append({
-            "id": card[0],
-            "name":card[1],
-            "image":card[2]
-        })
-
 
     emit('new_question', {
         'question_id':question_id,
         'question':question,
-        'cards': cards_data,
-        'room': room_name,
-        'timeout': 60
-    }, broadcast=True)
+        'cards': cards,        
+    }, room='psychics')
+    print("enviando pregunta a psiquicos", question)
 
 def auto_cancel_question(question_id,room_name):
     
@@ -213,7 +191,7 @@ def handle_answer(data):
     cur = mysql.connection.cursor()
     cur.execute("""
         INSERT INTO answers (question_id, psychic_id,answer) 
-        VALUE (%s,%s,%s)""",(question_id,psychic_id,answer))
+        VALUES (%s,%s,%s)""",(question_id,psychic_id,answer))
     mysql.connection.commit()
     cur.close()
 
@@ -226,30 +204,81 @@ def handle_answer(data):
 #Para tomar la pregunta y bloquearla apenas conteste 1 psiquico
 @socketio.on('take_question')
 def take_question(data):
-    question_id = data['question_id']
-    psychic_id = session.get('user_id')
+    
+    question_id = data.get("question_id")
+    psychic_id = session.get("user_id")
 
-    if session.get('user_role')!='psychic':
+    if session.get("user_role") != 'psychic':
         return
 
     cur = mysql.connection.cursor()
     cur.execute("""
-        UPDATE questions
-        SET status = 'taken', taken_by=%s
-        WHERE id=%s AND status='open'""",(psychic_id,question_id))
+        SELECT taken_by
+        FROM questions WHERE id=%s""",(question_id,))
     
-    mysql.connection.commit()
+    result = cur.fetchone()
+
+    print("Esto es el resultado", result)
+
+    if result and result[0] is None:
+        cur.execute(""" 
+                    UPDATE questions 
+                    SET taken_by = %s, status = 'taken' 
+                    WHERE id = %s AND taken_by is NULL""", (psychic_id,question_id))    
     
-    if cur.rowcount == 1:
-        emit('question_taken', {
-            'question_id': question_id,
-            'psychic_id': psychic_id
-            }, broadcast=True)
+        mysql.connection.commit()
+        print("Filas afectadas:", cur.rowcount)
+
+    if cur.rowcount > 0:
+
+        room_name = f"question_{question_id}"
         
-    else:
-        #ya estaba tomada la pregunta
-        emit('question_already_taken', {
-            'question_id':question_id
+        join_room(room_name)
+
+        emit("open_chat", {
+            "question_id" : question_id
         })
 
+        socketio.emit("question_taken",{
+            "question_id": question_id,
+            "psychic_id":psychic_id
+        }, skip_sid = request.sid)
+
+    else:
+        emit("already_take", {
+            "question_id": question_id
+        })   
+
     cur.close()
+#Fin socketio.on(take_question)
+
+@socketio.on("join_question_room")
+def join_question_room(data):
+
+    question_id = data.get("question_id")
+
+    room_name = f"question_{question_id}"
+
+    join_room(room_name)
+
+    print("Usuario unido a ", room_name)
+
+#Evento para enviar mensajes a sala de chat privado
+@socketio.on('send_chat_message')
+def send_chat_message(data):
+
+    question_id = data.get('question_id')
+    message = data.get('message')
+    user_name = session.get('user_name')
+
+    room_name = f'question_{question_id}'
+
+    emit('receive_chat_message',
+         {'user': user_name,
+          'message':message        
+    },room=room_name)
+    
+
+
+
+
