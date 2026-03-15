@@ -17,7 +17,7 @@
     <div id="cards-container"></div>
 
     <textarea name="" id="question" placeholder="Escribe tu pregunta.." disabled></textarea>
-    <button onclick="sendQuestion()">Enviar Pregunta</button>
+    <button id="send-question-btn" onclick="sendQuestion()" disabled>Enviar Pregunta</button>
 
     <div id="response"></div>
 
@@ -43,23 +43,37 @@
 
             selectedCards = data
 
-            data.forEach(card => {
+            data.forEach((card, index) => {
 
                 const carDiv = document.createElement("div")
 
                 carDiv.innerHTML = `
                 <img src="/static/cards/${card.image}" width="100">
                 <p>${card.name}</p>`;
+
+                carDiv.style.animationDelay = (index * 0.4) + "s";
                 
                 container.appendChild(carDiv);                
-            })
-
-            
-            //habilita el la caja de texto para formular la pregunta
-            document.getElementById("question").disabled = false
-
+            })            
+           
             //ocultar el botón
-            document.getElementById("draw-cards-btn").style.display = "none"
+            document.getElementById("draw-cards-btn").style.display = "none";
+            document.getElementById("question").disabled = false;
+                        
+            const textarea = document.getElementById("question");
+            const sendBtn = document.getElementById("send-question-btn");
+
+            //activar o desactivar textArea si esta vacio
+            textarea.addEventListener("input", function(){
+
+                if(textarea.value.trim() !== ""){
+                    sendBtn.disabled = false
+                }else{
+                    sendBtn.disabled = true
+                }
+
+            })
+             
         })
     }
 
@@ -83,6 +97,7 @@
         function sendQuestion(){
             
             const question = document.getElementById('question').value;
+            const sendButton = document.getElementById('send-question-btn')
 
             socket.emit('send_question', {
                 question: question,
@@ -90,6 +105,7 @@
             });
 
             document.getElementById('question').value = "";
+            sendButton.disabled = true;
         }
 
         //Escuchar respuestas privadas
