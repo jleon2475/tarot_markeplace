@@ -19,7 +19,7 @@
     <textarea name="" id="question" placeholder="Escribe tu pregunta.." disabled></textarea>
     <button id="send-question-btn" onclick="sendQuestion()" disabled>Enviar Pregunta</button>
 
-    <div id="response"></div>
+    <div id="chat-box" class="chat-box"></div>
 
        
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -28,7 +28,31 @@
     <script>
         const socket = io();
         let selectedCards =[];
-        let currenQuestionid = null;
+        let currentQuestionId = null;
+        let psychic_name = "";
+
+    
+    function addMessage(user, message, isMine){
+
+        const chatbox = document.getElementById("chat-box");
+        const  msgDiv = document.createElement("div");
+        msgDiv.classList.add("message");
+
+        if(isMine){
+            msgDiv.classList.add("my-message");
+        }else{
+            msgDiv.classList.add("other-message");
+        }
+
+        msgDiv.innerHTML = `
+        <span class="sender">${user}</span>
+        <span>${message}</span>
+        `
+        
+        chatbox.appendChild(msgDiv);
+        chatbox.scrollTop = chatbox.scrollHeight;
+
+    }
     
 
     function drawsCards(){
@@ -87,76 +111,103 @@
             document.getElementById("countdown").innerText ="Consulta iniciada";
         })
 
+        socket.on("open_chat", function(data){
+
+            currentQuestionId = data.question_id;
+
+            const chatbox = document.getElementById("chat-box");
+
+            chatbox.innerHTML = `
+                <div class="message my-message">
+                    <span class="sender">Yo</span>
+                    <span>${data.first_question}</span>
+                </div>
+            `;
+
+        });
+
         //Si ocurre TimeOut
         socket.on('question_timeout', function(data){
             clearInterval(timer),
             document.getElementById("countdown").innerText = data.message;
         })
 
+        socket.on("receive_answer", function(data){
+            addMessage(data.psychic_name,data.answer,false);
+        });
+
         //Enviar preguntas
         function sendQuestion(){
             
-            const question = document.getElementById('question').value;
-            const sendButton = document.getElementById('send-question-btn')
+            const textarea = document.getElementById('question');
+            const question = textarea.value.trim()
+            const sendButton = document.getElementById('send-question-btn');
 
-            socket.emit('send_question', {
+            if(question === ""){
+                alert("Debes escribir una pregunta");
+                return;
+            }
+            
+            if (currentQuestionId){
+                socket.emit("send_chat_message",{
+                    question_id:currentQuestionId,
+                    message:question
+                });
+
+                addMessage("Yo",question,true, currentQuestionId)
+            } else{                
+                socket.emit('send_question', {
                 question: question,
-                cards: selectedCards                                
-            });
+                cards: selectedCards
+                });
 
-            document.getElementById('question').value = "";
+            addMessage("Yo", question, true);
+            }
+
+            textarea.value = "";
             sendButton.disabled = true;
         }
-
-        //Escuchar respuestas privadas
-        socket.on('receive_answer', function(data){
-            document.getElementById("response").innerHTML =
-            "<h3>Repuesta: <h3><p>"+ data.answer+"</p>";
-        });
+        
 
         socket.on('new_question', function(data){
 
             console.log("Pregunta recibida:",data)
 
-            document.getElementById("response").innerHTML =
+            document.getElementById("chat-box").innerHTML =
             "<h3>Pregunta enviada:</h3><p>" + data.question + "</p>";
         })
 
         //chat privado
         function sendMessage(){
 
-            const input = document.getElementById("chat-input")
-            const message = input.value
-            
-            socket.emit("send_chat_message", {
-                question_id : currenQuestionid,
-                message : message
-            })
-
-            input.value = ""
-
-        }
-
-        socket.on("receive_chat_message", function(data){
-
+            const textarea = document.getElementById("question")
+            const question = textarea.value
             const chatbox = document.getElementById("chat-box")
 
             const message = document.createElement("p")
-
-            message.innerHTML = "<b>" + data.user + ":</b>" + data.message
+            message.innerHTML = "<b>Yo: </b>" + question
 
             chatbox.appendChild(message)
+            
+            socket.emit("send_chat_message", {
+                question_id : currentQuestionId,
+                message : question
+            })
 
-            chatbox.scrollTop = chatbox.scrollHeight            
+            textarea.value = ""
 
-        })
+        }
+
+        
 
         socket.on("question_taken", function(data){
 
-            currentQuestion = data.question_id
+            currentQuestionId = data.question_id;
+
+            console.log("Cliente entra al room", currentQuestionId)
 
             socket.emit("join_question_room", {
-                question_id: currentQuestion
+                question_id: currentQuestionId
             })
         })
 

@@ -9,7 +9,8 @@
 
     <div id="questions-container">
         <h3>Preguntas en vivo:</h3>
-    </div>    
+    </div> 
+    <div id="chat-box" class="chat-box"></div>   
     
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
@@ -25,6 +26,31 @@
         socket.on("disconnect", function(){
             console.log("Desconectado del servidor")
         })
+        //Funcion para agregar mensajes tipo whatsapp(burbuja)
+        function addMessage(user, message, isMine, question_id){
+
+        const chatbox = document.getElementById("chat-box-"+question_id);
+        if(!chatbox) return;
+
+        const  msgDiv = document.createElement("div");
+        msgDiv.classList.add("message");
+
+        if(isMine){
+            msgDiv.classList.add("my-message");
+        }else{
+            msgDiv.classList.add("other-message");
+        }
+
+        msgDiv.innerHTML = `
+        <span class="sender">${user}</span>
+        <span>${message}</span>
+        `
+        
+        chatbox.appendChild(msgDiv);
+        chatbox.scrollTop = chatbox.scrollHeight;
+
+    }
+    
 
         function takeQuestion(id){
             console.log("ID enviado: ",id)
@@ -33,6 +59,7 @@
             })
         }
 
+        //abrir chat privado
         socket.on("open_chat", function(data){
 
             console.log("Evento open_question recibido", data);
@@ -43,6 +70,10 @@
 
             answerBlock.innerHTML = ` 
             <h3>Responder Consulta</h3>
+
+            <div id="chat-box-${data.question_id}" class="chat-box"></div>
+
+            <br>
             
             <textarea id = "answer_${data.question_id}"
             rows="4" cols="50"
@@ -60,13 +91,15 @@
 
         socket.on('new_question', function(data){
             
-            const container = document.getElementById("questions-container")
-
             let cardsHtml = ""
+
+            console.log("NEW QUESTION LLEGO", data);
+
+            const container = document.getElementById("questions-container");
 
             data.cards.forEach(card=>{
                 cardsHtml += `<img src="/static/cards/${card.image}" width="80">`;
-            });       
+            }); 
             
             const questionBlock = document.createElement("div");
             questionBlock.id = "question-" + data.question_id;
@@ -77,14 +110,16 @@
 
             questionBlock.innerHTML = `
             <p><strong>Pregunta:</strong> ${data.question}</p>
-            <p> ${cardsHtml}</p>
-            <button onclick="takeQuestion(${data.question_id})">Tomar consulta</button>
-            </div>
-            <br><br>            
+            <p>${cardsHtml}</p>
+            <button onclick="takeQuestion(${data.question_id})">
+                Tomar consulta
+            </button>
             `;
-            container.prepend(questionBlock);
+
+        container.prepend(questionBlock);
         });
 
+        
         socket.on("question_taken", function(data){
 
             let block = document.getElementById("question-"+ data.question_id)
@@ -98,12 +133,21 @@
             alert("Esta consulta ya fue tomada por otro psiquico")
         })
 
+        socket.on("receive_chat_message", function(data){
+            console.log("mensaje recibido");
+            addMessage(data.user,data.message,false,data.question_id);
+        })
+
+       
+        //Funcion para enviar respuesta del psiquico que tomó la pregunta
         function sendAnswer(question_id){
 
-            const answerText = document.getElementById("answer_"+question_id).value;
+            const textarea = document.getElementById("answer_"+question_id)
+            const answerText = textarea.value;
 
             if(answerText.trim()===""){
-                alert("Debes escribir una respuesta")
+                alert("Debes escribir una respuesta");
+                return;
             }
 
             socket.emit('send_answer',{
@@ -111,7 +155,8 @@
                 answer: answerText
             })
 
-            alert("Repuesta enviada");
+            addMessage("Yo (psiquico)",answerText,true, question_id);
+            textarea.value = "";                   
         }    
     </script>
 {% endblock %}

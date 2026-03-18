@@ -198,7 +198,8 @@ def handle_answer(data):
     room_name =f"question_{question_id}"
 
     emit('receive_answer',{
-       'answer':answer
+       'answer':answer,
+       'psychic_name': session['user_name']
         },room=room_name)
 
 #Para tomar la pregunta y bloquearla apenas conteste 1 psiquico
@@ -213,7 +214,7 @@ def take_question(data):
 
     cur = mysql.connection.cursor()
     cur.execute("""
-        SELECT taken_by
+        SELECT taken_by, questions
         FROM questions WHERE id=%s""",(question_id,))
     
     result = cur.fetchone()
@@ -236,12 +237,14 @@ def take_question(data):
         join_room(room_name)
 
         emit("open_chat", {
-            "question_id" : question_id
-        })
+            "question_id" : question_id,
+            "first_question": result[1]
+        }, to=request.sid)
 
         socketio.emit("question_taken",{
             "question_id": question_id,
-            "psychic_id":psychic_id
+            "psychic_id":psychic_id,
+            "psychic_name": session['user_name']
         }, skip_sid = request.sid)
 
     else:
@@ -275,7 +278,8 @@ def send_chat_message(data):
 
     emit('receive_chat_message',
          {'user': user_name,
-          'message':message        
+          'message':message,
+          'question_id':question_id        
     },room=room_name)
     
 
